@@ -85,9 +85,7 @@ API-юзер `grafana-reader` создаётся в Zabbix заранее. Да�
 
 Положи скрины в каталог `docs/` и они появятся здесь:
 
-    docs/dashboard.png          # дашборд с графиком connections
-    docs/hosts.png              # список хостов с зелёными ZBX
-    docs/stub_status.png        # вывод zabbix_agent2 -t web.page.get[...]
-    docs/grafana-dashboard.png  # дашборд Grafana по метрикам Nginx
+![Dashboard](docs/grafana-dashboard.png)(docs/dashboard.png)
+
 
 ![Grafana dashboard](docs/grafana-dashboard.png)
