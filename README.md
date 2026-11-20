@@ -46,7 +46,7 @@ datasource создаётся автоматическим provisioning-файл
 requests — забираются агентом со stub_status. Дашборд `Nginx monitoring`:
 график connections, виджет Connections active, виджет Problems.
 
-#Уведомления
+##Уведомления
 Настроены алерты, отправляющиеся в telegram через настроенного бота, на доступность агента и проблемы с Nginx
 
 ## Grafana
