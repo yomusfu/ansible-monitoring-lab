@@ -9,7 +9,7 @@ Nginx со включённым `stub_status`, Zabbix Agent 2 на обеих м
 ```
 +---------------------------+          +---------------------------+
 |  zabbix-server            |          |  zabbix-client-1          |
-|  31.59.169.57             |          |  80.247.208.223           |
+|  <ZABBIX_SERVER_IP>             |          |  <CLIENT_IP>           |
 |                           |          |                           |
 |  - Zabbix Server :10051   | <------> |  - Zabbix Agent 2 :10050  |
 |  - PostgreSQL             |  10050   |  - Nginx :80              |
@@ -63,12 +63,12 @@ ansible-playbook site.yml
 
 ## Настройка в веб-интерфейсе (ручной шаг)
 
-`http://31.59.169.57/zabbix`, логин `Admin` / `zabbix`, затем:
+`http://<ZABBIX_SERVER_IP>/zabbix`, логин `Admin` / `zabbix`, затем:
 
 | Хост | Интерфейс | Шаблоны |
 |---|---|---|
 | `zabbix-server` | Agent, `127.0.0.1:10050` | Linux by Zabbix agent, Zabbix server health |
-| `zabbix-client-1` | Agent, `80.247.208.223:10050` | Linux by Zabbix agent, Nginx by Zabbix agent |
+| `zabbix-client-1` | Agent, `<CLIENT_IP>:10050` | Linux by Zabbix agent, Nginx by Zabbix agent |
 
 Имена хостов в UI обязаны совпадать с `Hostname=` в конфиге агента (в роли — `inventory_hostname`).
 
@@ -79,14 +79,14 @@ ansible-playbook site.yml
 
 ```bash
 # оба агента живы и представляются правильными именами
-ssh root@31.59.169.57    'zabbix_agent2 -t agent.hostname'
-ssh root@80.247.208.223  'zabbix_agent2 -t agent.hostname'
+ssh root@<ZABBIX_SERVER_IP>    'zabbix_agent2 -t agent.hostname'
+ssh root@<CLIENT_IP>  'zabbix_agent2 -t agent.hostname'
 
 # Nginx отдаёт stub_status
-ssh root@80.247.208.223 'curl -s http://127.0.0.1/basic_status'
+ssh root@<CLIENT_IP> 'curl -s http://127.0.0.1/basic_status'
 
 # агент видит Nginx
-ssh root@80.247.208.223 'zabbix_agent2 -t web.page.get["127.0.0.1","/basic_status","80"]'
+ssh root@<CLIENT_IP> 'zabbix_agent2 -t web.page.get["127.0.0.1","/basic_status","80"]'
 ```
 
 ## Грабли, которые собрали по пути
