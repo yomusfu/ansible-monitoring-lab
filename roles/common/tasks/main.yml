@@ -1,0 +1,14 @@
+---
+- name: Обновить кэш пакетов
+  apt:
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Установить базовые утилиты
+  apt:
+    name:
+      - curl
+      - vim
+      - htop
+      - unzip
+    state: present

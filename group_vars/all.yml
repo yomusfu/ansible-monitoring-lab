@@ -1,0 +1,6 @@
+---
+zabbix_server_ip: "31.59.169.57"
+nginx_stub_status_path: "basic_status"
+zabbix_db_name: zabbix
+zabbix_db_user: zabbix
+zabbix_db_password: "LabSecret2026!"

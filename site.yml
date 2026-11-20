@@ -1,0 +1,20 @@
+---
+- name: Базовая подготовка всех серверов
+  hosts: monitoring
+  roles:
+    - common
+
+- name: Nginx со stub_status на клиенте
+  hosts: zabbix-client-1
+  roles:
+    - nginx
+
+- name: Zabbix Agent 2 на все серверы
+  hosts: monitoring
+  roles:
+    - zabbix_agent
+
+- name: Zabbix Server и веб-интерфейс
+  hosts: zabbix_server
+  roles:
+    - zabbix_server

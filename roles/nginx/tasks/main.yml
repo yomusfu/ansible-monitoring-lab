@@ -1,0 +1,24 @@
+---
+- name: Установить Nginx
+  apt:
+    name: nginx
+    state: present
+
+- name: Деплой конфига со stub_status
+  template:
+    src: stub_status.conf.j2
+    dest: /etc/nginx/sites-available/monitoring
+  notify: Reload nginx
+
+- name: Активировать сайт
+  file:
+    src: /etc/nginx/sites-available/monitoring
+    dest: /etc/nginx/sites-enabled/monitoring
+    state: link
+  notify: Reload nginx
+
+- name: Убрать дефолтный сайт
+  file:
+    path: /etc/nginx/sites-enabled/default
+    state: absent
+  notify: Reload nginx

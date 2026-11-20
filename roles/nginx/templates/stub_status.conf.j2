@@ -1,0 +1,11 @@
+server {
+    listen 80;
+    server_name _;
+
+    location = /{{ nginx_stub_status_path }} {
+        stub_status;
+        allow 127.0.0.1;
+        allow {{ zabbix_server_ip }};
+        deny all;
+    }
+}

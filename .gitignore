@@ -1,0 +1,13 @@
+# Ansible
+*.retry
+inventory.ini.local
+secret*.yml
+
+# Python / виртуальные окружения
+__pycache__/
+.venv/
+venv/
+
+# Системное
+.DS_Store
+*.swp

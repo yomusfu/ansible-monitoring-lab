@@ -1,0 +1,71 @@
+---
+- name: Установить PostgreSQL и пакеты Zabbix сервера
+  apt:
+    name:
+      - postgresql
+      - zabbix-server-pgsql
+      - zabbix-frontend-php
+      - zabbix-apache-conf
+      - zabbix-sql-scripts
+      - php-pgsql
+    state: present
+
+- name: Убрать Nginx с сервера Zabbix (остался с прошлой лабы)
+  apt:
+    name: nginx
+    state: absent
+    purge: true
+
+- name: Запустить и включить PostgreSQL
+  systemd:
+    name: postgresql
+    state: started
+    enabled: true
+
+- name: Создать пользователя БД
+  command: >
+    sudo -u postgres psql -c
+    "CREATE USER {{ zabbix_db_user }} WITH PASSWORD '{{ zabbix_db_password }}';"
+  failed_when: false
+  changed_when: false
+
+- name: Создать базу данных
+  command: >
+    sudo -u postgres createdb -O {{ zabbix_db_user }} {{ zabbix_db_name }}
+  register: createdb_result
+  failed_when: createdb_result.rc != 0 and 'already exists' not in createdb_result.stderr
+  changed_when: createdb_result.rc == 0
+
+- name: Импортировать схему (только если БД создана сейчас)
+  shell: >
+    zcat /usr/share/zabbix-sql-scripts/postgresql/server.sql.gz |
+    sudo -u zabbix psql {{ zabbix_db_name }}
+  when: createdb_result.changed
+
+- name: Прописать пароль БД в конфиг сервера
+  lineinfile:
+    path: /etc/zabbix/zabbix_server.conf
+    regexp: '^#? ?DBPassword='
+    line: "DBPassword={{ zabbix_db_password }}"
+  notify: Restart zabbix-server
+
+- name: Деплой конфига веб-интерфейса
+  template:
+    src: zabbix.conf.php.j2
+    dest: /etc/zabbix/web/zabbix.conf.php
+    mode: '0600'
+    owner: www-data
+    group: www-data
+  notify: Restart apache
+
+- name: Запустить и включить Zabbix Server
+  systemd:
+    name: zabbix-server
+    state: started
+    enabled: true
+
+- name: Запустить и включить Apache
+  systemd:
+    name: apache2
+    state: started
+    enabled: true
