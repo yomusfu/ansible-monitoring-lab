@@ -74,6 +74,11 @@ ansible-playbook site.yml
 
 Дашборд: Graph с метриками `Connections accepted/handled per second` и `Connections active`,
 виджет Item value для `Connections active`, виджет Problems.
+## Скриншоты
+
+### Дашборд Nginx monitoring (пик нагрузки — 100 одновременных запросов)
+
+![Дашборд Nginx](docs/dashboard.png)
 
 ## Проверка
 
