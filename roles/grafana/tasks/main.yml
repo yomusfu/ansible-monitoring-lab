@@ -1,0 +1,59 @@
+---
+- name: Ensure /etc/apt/keyrings exists
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: "0755"
+
+- name: Add Grafana GPG key
+  ansible.builtin.apt_key:
+    url: https://apt.grafana.com/gpg.key
+    keyring: /etc/apt/keyrings/grafana.gpg
+    state: present
+
+- name: Add Grafana repository
+  ansible.builtin.apt_repository:
+    repo: "deb [signed-by=/etc/apt/keyrings/grafana.gpg] https://apt.grafana.com stable main"
+    filename: grafana
+    state: present
+
+- name: Install Grafana
+  ansible.builtin.apt:
+    name: grafana
+    state: present
+    update_cache: true
+
+- name: Install Zabbix plugin for Grafana
+  ansible.builtin.command: grafana-cli --homepath /usr/share/grafana plugins install alexanderzobnin-zabbix-app
+  args:
+    creates: /var/lib/grafana/plugins/alexanderzobnin-zabbix-app
+  notify: Restart grafana
+
+- name: Allow unsigned Zabbix plugin
+  ansible.builtin.copy:
+    dest: /etc/grafana/grafana.ini
+    content: |
+      [plugins]
+      allow_loading_unsigned_plugins = alexanderzobnin-zabbix-datasource
+  notify: Restart grafana
+
+- name: Provision Zabbix datasource
+  ansible.builtin.template:
+    src: zabbix-ds.yml.j2
+    dest: /etc/grafana/provisioning/datasources/zabbix.yml
+    mode: "0644"
+  notify: Restart grafana
+
+- name: Set admin password on first start
+  ansible.builtin.systemd:
+    name: grafana-server
+    state: restarted
+    daemon_reload: true
+  environment:
+    GF_SECURITY_ADMIN_PASSWORD: "{{ grafana_admin_password }}"
+
+- name: Enable and start Grafana
+  ansible.builtin.systemd:
+    name: grafana-server
+    enabled: true
+    state: started

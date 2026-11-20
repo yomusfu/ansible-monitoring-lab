@@ -18,3 +18,9 @@
   hosts: zabbix_server
   roles:
     - zabbix_server
+
+- name: Grafana на сервере
+  hosts: zabbix-server
+  become: true
+  roles:
+    - grafana
