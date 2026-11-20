@@ -11,3 +11,4 @@ venv/
 # Системное
 .DS_Store
 *.swp
+inventory.ini
