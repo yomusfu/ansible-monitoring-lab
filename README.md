@@ -83,9 +83,7 @@ API-юзер `grafana-reader` создаётся в Zabbix заранее. Да�
 
 ## Скриншоты
 
-Положи скрины в каталог `docs/` и они появятся здесь:
-
-![Dashboard](docs/grafana-dashboard.png)(docs/dashboard.png)
+![Dashboard](docs/dashboard.png)(docs/dashboard.png)
 
 
 ![Grafana dashboard](docs/grafana-dashboard.png)
