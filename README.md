@@ -86,3 +86,5 @@ API-юзер `grafana-reader` создаётся в Zabbix заранее. Да�
 ![Dashboard](docs/dashboard.png)
 
 ![Grafana dashboard](docs/grafana-dashboard.png)
+
+![TG-alert](docs/tg-alert.png)
