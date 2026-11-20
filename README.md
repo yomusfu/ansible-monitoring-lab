@@ -1,40 +1,93 @@
-# Ansible Monitoring Lab
+# Ansible-стенд мониторинга: Nginx + Zabbix 7.0 + Grafana
 
-Стенд мониторинга, разворачиваемый одной командой Ansible:
+Инфраструктура мониторинга разворачивается одной командой `ansible-playbook site.yml`.
 
-- **zabbix-server** (31.59.169.57) — Zabbix Server, вебморда, Grafana с плагином Zabbix, Nginx с `stub_status`
-- **zabbix-client-1** (80.247.208.223) — Zabbix Agent 2 + Nginx, метрики которого собираются
+## Стенд
 
-Управление — из WSL (Ansible control node), цель — воспроизводимый деплой мониторинга с нуля.
+| Машина | IP | Роль |
+|---|---|---|
+| zabbix-server | <ZABBIX_SERVER_IP> | Ubuntu, PostgreSQL, Zabbix Server 7.0, веб-интерфейс (Apache, порт 80), Grafana (порт 3000) |
+| zabbix-client-1 | <CLIENT_IP> | Ubuntu, Nginx 1.24 (со stub_status), Zabbix Agent2 |
 
-## Что показывает стенд
+Zabbix Server опрашивает агентов по порту 10050 (пассивные проверки);
+агент клиента забирает метрики Nginx через `http://127.0.0.1/basic_status`.
+На сервере развёрнута Grafana поверх Zabbix: плагин alexanderzobnin-zabbix-app,
+datasource создаётся автоматическим provisioning-файлом (учётка read-only из vault),
+дашборд `Nginx traffic` с метриками connections/requests.
 
-1. Grafana дашборд с метриками Nginx (connections/requests per second) поверх Zabbix
-2. Сбор метрик через Zabbix Agent 2 и web-метрики `stub_status`
-3. Проблемы и триггеры в Zabbix UI
+## Структура проекта
 
-Скриншот дашборда: ![Grafana dashboard](docs/grafana-dashboard.png)
+    site.yml                  # точка входа: роли по хостам из inventory.ini
+    inventory.ini             # хосты и группы
+    group_vars/all.yml        # переменные (в т.ч. пароли БД и Grafana/Zabbix API, зашифрованы ansible-vault)
+    roles/common              # базовая настройка хостов
+    roles/nginx               # установка Nginx, конфиг со stub_status (/basic_status, allow 127.0.0.1)
+    roles/zabbix_agent        # Zabbix Agent2, конфиг: Server=<IP сервера>,127.0.0.1
+    roles/zabbix_server       # PostgreSQL + zabbix-server-pgsql + frontend (Apache),
+                              # создание БД/пользователя, импорт схемы, снос лишнего Nginx
+    roles/grafana             # установка Grafana, плагин Zabbix, provisioning datasource,
+                              # пароль admin на первый запуск
 
-## Быстрый старт
+## Запуск
 
-```bash
-cd ~/ansible-monitoring-lab
-ansible-playbook site.yml
-```
+    ansible-playbook site.yml
 
-Секреты лежат в зашифрованном vault: `group_vars/all.yml` (редактирование — `ansible-vault edit group_vars/all.yml`).
+Плейбук идемпотентен: безопасно перезапускается, импорт схемы БД выполняется
+только при первом создании базы (условие по результату createdb).
 
-## Грабли, на которые наступил
+## Что мониторится
 
-1. **Плейсхолдеры в шаблонах вместо Jinja-переменных.** В шаблон Nginx уехал литеральный `<ZABBIX_SERVER_IP>` — reload падал с `invalid parameter "<ZABBIX_SERVER_IP>"`. Правило: плейсхолдеры — только в README и `inventory.ini.example`, во всех шаблонах ролей — `{{ переменные }}` из vault/инвентаря.
-2. **`grafana-cli` без `--homepath`.** Свежая Grafana при запуске CLI из произвольной директории падает с `Could not find config defaults`. Лечение: `grafana-cli --homepath /usr/share/grafana plugins install ...`.
-3. **`GF_SECURITY_ADMIN_PASSWORD` применяется только при первом старте.** Если Grafana стартовала раньше таска, пароль не применится. Надёжный путь — сброс через CLI: `grafana cli --homepath /usr/share/grafana --config /etc/grafana/grafana.ini admin reset-admin-password '<пароль>'`.
-4. **Опечатка в IP в конфиге агента.** `Server=31.59.167.57` вместо `31.59.169.57` не даёт ошибок конфигурации — агент просто рвёт соединения (`Connection reset by peer`), а сервер помечает его Not available. Диагностика: лог агента (`connection rejected, allowed hosts: ...`) сразу показывает расхождение адресов.
-5. **Блокировка юзера Zabbix при неудачных попытках входа API.** После серии промахов Zabbix лочит учётку на ~30 секунд — при отладке datasource ждать минуту перед ретраем.
+| Хост | Шаблоны |
+|---|---|
+| zabbix-server | Linux by Zabbix agent, Zabbix server health |
+| zabbix-client-1 | Linux by Zabbix agent, Nginx by Zabbix agent |
 
-## Структура
+Метрики Nginx: Connections active / accepted / handled / dropped per second,
+requests — забираются агентом со stub_status. Дашборд `Nginx monitoring`:
+график connections, виджет Connections active, виджет Problems.
 
-- `inventory.ini` — хосты и переменные подключения
-- `group_vars/all.yml` — vault с секретами (IP, пароли БД/API/Grafana)
-- `roles/` — роли zabbix-server, zabbix-agent, nginx, grafana
-- `docs/` — скриншоты стенда
+## Grafana
+
+Открывается на `http://<ZABBIX_SERVER_IP>:3000`, логин `admin`, пароль задаётся
+в vault (`grafana_admin_password`). Datasource Zabbix поднимается provisioning-ом
+(`/etc/grafana/provisioning/datasources/`) с учётной записью read-only:
+API-юзер `grafana-reader` создаётся в Zabbix заранее. Дашборд `Nginx traffic`
+строится по datasource Zabbix: connections accepted per second и requests per second.
+
+## Проверка
+
+    # порт агента
+    ssh root@<CLIENT_IP> 'ss -tlnp | grep 10050'
+    # метрики Nginx глазами агента
+    ssh root@<CLIENT_IP> 'zabbix_agent2 -t web.page.get["127.0.0.1","/basic_status","80"]'
+    # нагрузочный тест для графика
+    ssh root@<CLIENT_IP> 'for i in $(seq 1 100); do curl -s http://127.0.0.1/ > /dev/null & done; wait'
+    # Grafana datasource: Save & Test в UI Connections -> Data sources -> Zabbix
+
+## Грабли, которые собрались по ходу
+
+- **Порт 80 занят Nginx с прошлой лабы** — Apache не стартовал (Address already in use).
+  Решение: роль zabbix_server сносит пакет `nginx` с purge; порт 80 отдаём Apache.
+- **`POSTgreSQL` вместо `POSTGRESQL`** — опечатка в шаблоне zabbix.conf.php ловится
+  валидатором веб-интерфейса; правка вносится в исходник роли, а не на сервер.
+- **Порт в интерфейсе хоста 10051 вместо 10050** — агент не отвечает, ZBX серый.
+- **`Server=` без `127.0.0.1`** — локальный агент на сервере отсекает опрос
+  с localhost, красный ZBX; в конфиге агента через запятую добавлен 127.0.0.1.
+- **DROP DATABASE при живых сессиях** — перед дропом старой БД останавливается
+  zabbix-server.
+- **`grafana-cli` без `--homepath`** — установка плагина падает с «Could not find
+  config defaults»; вызов `grafana-cli --homepath /usr/share/grafana plugins install ...`.
+- **Опечатка в IP агента (Server= вместо реального адреса сервера)** — агент жив,
+  слушает 10050, но рвёт соединения: `Connection reset by peer` в вебморде.
+  Симптом не указывает на конфиг — проверять grep'ом конфига агента.
+
+## Скриншоты
+
+Положи скрины в каталог `docs/` и они появятся здесь:
+
+    docs/dashboard.png          # дашборд с графиком connections
+    docs/hosts.png              # список хостов с зелёными ZBX
+    docs/stub_status.png        # вывод zabbix_agent2 -t web.page.get[...]
+    docs/grafana-dashboard.png  # дашборд Grafana по метрикам Nginx
+
+![Grafana dashboard](docs/grafana-dashboard.png)
